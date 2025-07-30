@@ -1,5 +1,25 @@
 const apiKey = "52a00342238189a79c137a328380b9d0";
 
+async function getPersonIdByName(name) {
+  const res = await fetch(`https://api.themoviedb.org/3/search/person?api_key=${apiKey}&query=${encodeURIComponent(name)}`);
+  const data = await res.json();
+  return data.results[0]?.id || null;
+}
+
+async function getCredits(personId, includeTV = false) {
+  const movieCredits = await fetch(`https://api.themoviedb.org/3/person/${personId}/movie_credits?api_key=${apiKey}`);
+  const movieData = await movieCredits.json();
+  let credits = movieData.cast || [];
+
+  if (includeTV) {
+    const tvCredits = await fetch(`https://api.themoviedb.org/3/person/${personId}/tv_credits?api_key=${apiKey}`);
+    const tvData = await tvCredits.json();
+    credits = credits.concat(tvData.cast || []);
+  }
+
+  return credits;
+}
+
 function shuffle() {
   const boxes = document.querySelectorAll('.search-box');
   const sampleNames = [
@@ -24,10 +44,12 @@ function clearResults() {
   box.innerHTML = `<p class="placeholder-text">Results will appear here.</p>`;
 }
 
-function search() {
+async function search() {
   const names = Array.from(document.querySelectorAll('.search-box'))
     .map(input => input.value.trim())
     .filter(name => name);
+
+  const includeTV = document.getElementById("includeTV")?.checked;
 
   if (names.length < 2) {
     alert("Please enter at least two names to compare.");
@@ -36,38 +58,56 @@ function search() {
 
   document.getElementById("resultsBox").innerHTML = `<p>Searching for shared projects between ${names.join(" & ")}...</p>`;
 
-  setTimeout(() => {
-    renderMockResults(names);
-  }, 1200);
+  try {
+    const personCredits = {};
+    for (const name of names) {
+      const id = await getPersonIdByName(name);
+      if (!id) throw new Error(`Could not find person: ${name}`);
+      personCredits[name] = await getCredits(id, includeTV);
+    }
+
+    const sharedMovies = findSharedMovies(personCredits);
+    renderResults(sharedMovies, personCredits);
+  } catch (error) {
+    document.getElementById("resultsBox").innerHTML = `<p>Error: ${error.message}</p>`;
+  }
 }
 
-function renderMockResults(names) {
+function findSharedMovies(personCredits) {
+  const movieMap = new Map();
+  for (const [name, credits] of Object.entries(personCredits)) {
+    for (const movie of credits) {
+      if (!movieMap.has(movie.id)) {
+        movieMap.set(movie.id, { ...movie, roles: {} });
+      }
+      movieMap.get(movie.id).roles[name] = movie.character || "(Unknown Role)";
+    }
+  }
+
+  return Array.from(movieMap.values()).filter(movie => {
+    return Object.keys(movie.roles).length === Object.keys(personCredits).length;
+  });
+}
+
+function renderResults(movies, personCredits) {
   const box = document.getElementById("resultsBox");
   box.innerHTML = "";
-  const fakeResults = [
-    {
-      title: "Imaginary Crossover Film",
-      year: "2021",
-      rating: "7.9",
-      poster: "https://via.placeholder.com/150x225?text=Movie+Poster",
-      roles: names.map(name => `${name} as Cool Character`)
-    },
-    {
-      title: "Another Collab",
-      year: "2018",
-      rating: "8.2",
-      poster: "https://via.placeholder.com/150x225?text=Movie+Poster",
-      roles: names.map(name => `${name} as Legendary Role`)
-    }
-  ];
-  fakeResults.forEach(result => {
+
+  if (movies.length === 0) {
+    box.innerHTML = `<p>No shared movie or TV credits found.</p>`;
+    return;
+  }
+
+  movies.forEach(movie => {
     const card = document.createElement("div");
     card.className = "result-card";
     card.innerHTML = `
-      <img src="${result.poster}" alt="${result.title}" class="poster" />
-      <h3 class="card-title">${result.title} <span class="year">(${result.year})</span></h3>
-      <p class="rating">⭐ ${result.rating} / 10</p>
-      <ul class="role-list">${result.roles.map(role => `<li>${role}</li>`).join("")}</ul>
+      <img src="https://image.tmdb.org/t/p/w300${movie.poster_path}" alt="${movie.title || movie.name}" class="poster" />
+      <h3 class="card-title">${movie.title || movie.name} <span class="year">(${(movie.release_date || movie.first_air_date || "N/A").slice(0, 4)})</span></h3>
+      <ul class="role-list">
+        ${Object.entries(movie.roles).map(([name, role]) => `<li><strong>${name}</strong> as ${role}</li>`).join("")}
+      </ul>
+      <p class="rating">⭐ Rating: ${movie.vote_average?.toFixed(1) || "N/A"}</p>
     `;
     box.appendChild(card);
   });
@@ -98,7 +138,6 @@ function selectSuggestion(div, name) {
 
 document.addEventListener("DOMContentLoaded", () => {
   document.querySelectorAll(".search-box").forEach(input => {
-    const suggestionBox = input.nextElementSibling;
     input.addEventListener("input", () => handleAutocomplete(input));
   });
 });
