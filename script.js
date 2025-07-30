@@ -37,6 +37,10 @@ function shuffle() {
     box.value = sampleNames[idx];
   });
   clearResults();
+  document.querySelectorAll(".search-box").forEach(input => {
+    input.removeEventListener("input", handleAutocomplete);
+    input.addEventListener("input", () => handleAutocomplete(input));
+  });
 }
 
 function clearResults() {
@@ -137,7 +141,15 @@ function selectSuggestion(div, name) {
 }
 
 document.addEventListener("DOMContentLoaded", () => {
-  document.querySelectorAll(".search-box").forEach(input => {
-    input.addEventListener("input", () => handleAutocomplete(input));
-  });
+  function initializeAutocomplete() {
+    document.querySelectorAll(".search-box").forEach(input => {
+      input.removeEventListener("input", handleAutocomplete);
+      input.addEventListener("input", () => handleAutocomplete(input));
+    });
+  }
+
+  initializeAutocomplete();
+
+  // If new input fields are dynamically added later, call initializeAutocomplete() again
+  window.initializeAutocomplete = initializeAutocomplete;
 });
