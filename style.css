@@ -1,176 +1,171 @@
-const apiKey = "52a00342238189a79c137a328380b9d0";
-
-function shuffle() {
-  const boxes = document.querySelectorAll('.search-box');
-  const sampleNames = ["Tom Hanks", "Viola Davis", "Brad Pitt", "Greta Gerwig", "Christopher Nolan"];
-  boxes.forEach((box, i) => {
-    box.value = sampleNames[Math.floor(Math.random() * sampleNames.length)];
-  });
-  clearResults();
+/* Base styles */
+body {
+  font-family: 'Roboto', sans-serif;
+  background-color: #f9f9f9;
+  margin: 0;
+  padding: 0;
+  text-align: center;
+  color: #222;
 }
 
-function clearResults() {
-  const box = document.getElementById("resultsBox");
-  box.innerHTML = `<p class="placeholder-text">Results will appear here.</p>`;
+.container {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 20px;
 }
 
-function search() {
-  const names = Array.from(document.querySelectorAll('.search-box'))
-    .map(input => input.value.trim())
-    .filter(name => name);
-
-  if (names.length < 2) {
-    alert("Please enter at least two names to compare.");
-    return;
-  }
-
-  document.getElementById("resultsBox").innerHTML = `<p>Searching for shared projects between ${names.join(" & ")}...</p>`;
-
-  // Placeholder: in a real setup, you'd fetch TMDb data and compare credits here
-  setTimeout(() => {
-    renderMockResults(names);
-  }, 1200);
+header {
+  margin-bottom: 30px;
 }
 
-function renderMockResults(names) {
-  const box = document.getElementById("resultsBox");
-  box.innerHTML = "";
-
-  const fakeResults = [
-    {
-      title: "Imaginary Crossover Film",
-      year: "2021",
-      rating: "7.9",
-      poster: "https://via.placeholder.com/150x225?text=Movie+Poster",
-      roles: names.map(name => `${name} as Cool Character`)
-    },
-    {
-      title: "Another Collab",
-      year: "2018",
-      rating: "8.2",
-      poster: "https://via.placeholder.com/150x225?text=Movie+Poster",
-      roles: names.map(name => `${name} as Legendary Role`)
-    }
-  ];
-
-  fakeResults.forEach(result => {
-    const card = document.createElement("div");
-    card.className = "result-card";
-    card.innerHTML = `
-      <img src="${result.poster}" alt="${result.title}" class="poster" />
-      <h3 class="card-title">${result.title} <span class="year">(${result.year})</span></h3>
-      <p class="rating">⭐ ${result.rating} / 10</p>
-      <ul class="role-list">${result.roles.map(role => `<li>${role}</li>`).join("")}</ul>
-    `;
-    box.appendChild(card);
-  });
+.main-title {
+  font-size: 3rem;
+  font-weight: 900;
+  color: #ff3d3d;
+  text-shadow: 2px 2px #00000044, 3px 3px #ffffff44;
+  margin: 0;
 }
 
-/* STYLE */
-const style = document.createElement('style');
-style.textContent = `
-  body {
-    font-family: 'Roboto', sans-serif;
-    background-color: #f5f5f5;
-    margin: 0;
-    padding: 0;
-    text-align: center;
-  }
+.subtitle {
+  font-size: 1.2rem;
+  color: #555;
+  margin-top: 10px;
+}
 
-  .container {
-    max-width: 800px;
-    margin: 0 auto;
-    padding: 40px 20px;
-  }
+.search-section {
+  margin-bottom: 30px;
+}
 
-  .main-title {
-    font-size: 3rem;
-    text-shadow: 2px 2px 0 #000, 4px 4px 0 #555;
-    margin-bottom: 10px;
-  }
+.input-group {
+  position: relative;
+  margin-bottom: 15px;
+}
 
-  .subtitle {
-    font-size: 1.2rem;
-    margin-bottom: 30px;
-    color: #555;
-  }
+.search-box {
+  padding: 12px 15px;
+  font-size: 1rem;
+  border: 2px solid #ccc;
+  border-radius: 8px;
+  width: 100%;
+  max-width: 400px;
+  box-sizing: border-box;
+}
 
-  .search-section {
-    margin-bottom: 20px;
-  }
+.autocomplete-suggestions {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: #fff;
+  border: 1px solid #ccc;
+  max-height: 200px;
+  overflow-y: auto;
+  z-index: 10;
+  border-radius: 0 0 8px 8px;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+}
 
-  .input-group {
-    margin: 10px 0;
-  }
+.suggestion-item {
+  display: flex;
+  align-items: center;
+  padding: 8px 12px;
+  cursor: pointer;
+}
 
-  .search-box {
-    padding: 10px;
-    font-size: 1rem;
-    width: 80%;
-    max-width: 400px;
-    border: 1px solid #ccc;
-    border-radius: 5px;
-  }
+.suggestion-item:hover {
+  background-color: #f0f0f0;
+}
 
-  .btn {
-    padding: 10px 20px;
-    font-size: 1rem;
-    margin: 5px;
-    border: none;
-    border-radius: 5px;
-    cursor: pointer;
-  }
+.suggestion-item img {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  margin-right: 10px;
+}
 
-  .btn.search { background-color: #007BFF; color: white; }
-  .btn.clear { background-color: #6c757d; color: white; }
-  .btn.shuffle { background-color: #28a745; color: white; }
-  .btn.add { background-color: #ffc107; color: black; }
+.btn {
+  padding: 10px 20px;
+  font-size: 1rem;
+  border: none;
+  border-radius: 6px;
+  margin: 5px;
+  cursor: pointer;
+  transition: all 0.2s ease-in-out;
+}
 
-  .btn:hover {
-    opacity: 0.9;
-  }
+.btn:hover {
+  transform: translateY(-1px);
+  opacity: 0.9;
+}
 
-  .results-box {
-    margin-top: 30px;
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-    gap: 20px;
-    justify-items: center;
-  }
+.btn.add {
+  background-color: #0080ff;
+  color: white;
+}
 
-  .result-card {
-    background-color: white;
-    border-radius: 10px;
-    padding: 15px;
-    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-    width: 200px;
-  }
+.btn.shuffle {
+  background-color: #ff9800;
+  color: white;
+}
 
-  .poster {
-    width: 100%;
-    border-radius: 5px;
-  }
+.btn.clear {
+  background-color: #607d8b;
+  color: white;
+}
 
-  .card-title {
-    font-size: 1.1rem;
-    margin: 10px 0 5px;
-  }
+.btn.search {
+  background-color: #4caf50;
+  color: white;
+}
 
-  .year {
-    color: #777;
-    font-size: 0.9rem;
-  }
+.controls {
+  margin-top: 15px;
+}
 
-  .rating {
-    font-weight: bold;
-    color: #ff9900;
-  }
+.results-box {
+  margin-top: 30px;
+}
 
-  .role-list {
-    padding: 0;
-    list-style: none;
-    text-align: left;
-    font-size: 0.9rem;
-  }
-`;
-document.head.appendChild(style);
+.result-card {
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  padding: 20px;
+  margin: 15px auto;
+  max-width: 300px;
+  text-align: left;
+}
+
+.result-card img.poster {
+  width: 100%;
+  height: auto;
+  border-radius: 8px;
+}
+
+.card-title {
+  font-size: 1.25rem;
+  margin: 10px 0 5px;
+}
+
+.rating {
+  font-size: 1rem;
+  color: #444;
+}
+
+.role-list {
+  list-style-type: none;
+  padding: 0;
+  margin-top: 10px;
+}
+
+.role-list li {
+  font-size: 0.95rem;
+  margin-bottom: 5px;
+  color: #555;
+}
+
+footer {
+  margin-top: 40px;
+  font-size: 0.8rem;
+  color: #aaa;
+}
