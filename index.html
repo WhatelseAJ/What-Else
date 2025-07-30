@@ -1,10 +1,10 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>What Else?</title>
-  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="style.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
@@ -20,9 +20,11 @@
       <div id="inputGroupContainer">
         <div class="input-group">
           <input type="text" placeholder="Enter actor or director name..." class="search-box" />
+          <div class="autocomplete-suggestions"></div>
         </div>
         <div class="input-group">
           <input type="text" placeholder="Enter another name..." class="search-box" />
+          <div class="autocomplete-suggestions"></div>
         </div>
       </div>
       <button onclick="addSearchBox()" class="btn add">➕ Add Another</button>
@@ -47,8 +49,14 @@
       const container = document.getElementById('inputGroupContainer');
       const newGroup = document.createElement('div');
       newGroup.classList.add('input-group');
-      newGroup.innerHTML = '<input type="text" placeholder="Enter another name..." class="search-box" />';
+      newGroup.innerHTML = `
+        <input type="text" placeholder="Enter another name..." class="search-box" />
+        <div class="autocomplete-suggestions"></div>
+      `;
       container.appendChild(newGroup);
+      const input = newGroup.querySelector(".search-box");
+      const suggestionBox = newGroup.querySelector(".autocomplete-suggestions");
+      input.addEventListener("input", () => handleAutocomplete(input));
     }
   </script>
   <script src="script.js"></script>
