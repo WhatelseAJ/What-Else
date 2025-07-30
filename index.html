@@ -2,31 +2,55 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>What Else?</title>
   <link rel="stylesheet" href="style.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
 </head>
 <body>
-  <header>
-    <h1>🎬 What Else?</h1>
-    <p>Discover what else your favorites have worked on—together.</p>
-    <div class="controls">
-      <button onclick="shuffle()">🔀 Shuffle</button>
-      <button onclick="clearResults()">🧹 Clear</button>
-      <button onclick="search()">🔍 Search</button>
-    </div>
-  </header>
+  <div class="container">
+    <header>
+      <h1 class="main-title">🎬 What Else?</h1>
+      <p class="subtitle">Discover what else your favorite people have worked on—together.</p>
+    </header>
 
-  <main>
-    <input type="text" id="actor1" placeholder="Enter first actor..." />
-    <input type="text" id="actor2" placeholder="Enter second actor..." />
-    <div id="resultsBox">Results will appear here.</div>
-  </main>
+    <section class="search-section">
+      <div id="inputGroupContainer">
+        <div class="input-group">
+          <input type="text" placeholder="Enter actor or director name..." class="search-box" />
+        </div>
+        <div class="input-group">
+          <input type="text" placeholder="Enter another name..." class="search-box" />
+        </div>
+      </div>
+      <button onclick="addSearchBox()" class="btn add">➕ Add Another</button>
+      <div class="controls">
+        <button onclick="shuffle()" class="btn shuffle">🔀 Shuffle</button>
+        <button onclick="clearResults()" class="btn clear">🧹 Clear</button>
+        <button onclick="search()" class="btn search">🔍 Search</button>
+      </div>
+    </section>
 
-  <footer>
-    <p>Version 1.0 — July 2025</p>
-  </footer>
+    <section id="resultsBox" class="results-box">
+      <p class="placeholder-text">Results will appear here.</p>
+    </section>
 
+    <footer>
+      <p>Version 1.0 — July 2025</p>
+    </footer>
+  </div>
+
+  <script>
+    function addSearchBox() {
+      const container = document.getElementById('inputGroupContainer');
+      const newGroup = document.createElement('div');
+      newGroup.classList.add('input-group');
+      newGroup.innerHTML = '<input type="text" placeholder="Enter another name..." class="search-box" />';
+      container.appendChild(newGroup);
+    }
+  </script>
   <script src="script.js"></script>
 </body>
 </html>
