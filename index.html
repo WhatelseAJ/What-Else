@@ -4,30 +4,37 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>What Else? - Movie Match Finder</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
   <header>
     <h1>🎬 What Else?</h1>
-    <p>Find what else your favorite stars have worked on—together.</p>
+    <p>Find what else your favorite actors have worked on—together.</p>
   </header>
 
   <main>
+    <!-- Dynamic Actor Inputs -->
     <section id="actorInputs" class="input-container"></section>
 
+    <!-- Action Buttons -->
     <div class="button-row">
       <button id="searchBtn">🔍 Search</button>
       <button id="clearBtn">🧹 Clear</button>
       <button onclick="addActorInput()">➕ Add Actor</button>
     </div>
 
+    <!-- Results Display -->
     <section id="results" class="results-section"></section>
   </main>
 
   <footer>
-    <p style="margin-top: 2rem; color: #aaa;">Built with ❤️ + TMDb API</p>
+    <p style="margin-top: 2rem; color: #aaa;">Powered by TMDb • Built with ❤️</p>
   </footer>
 
+  <!-- Link to the matching script -->
   <script src="script.js"></script>
 </body>
 </html>
