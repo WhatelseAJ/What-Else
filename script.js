@@ -1,4 +1,3 @@
-// Full JavaScript for What Else App with UI & Search Functions + TMDb Links
 const apiKey = "52a00342238189a79c137a328380b9d0";
 let currentMode = 'actors';
 let debounceTimer;
