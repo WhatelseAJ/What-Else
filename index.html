@@ -2,39 +2,47 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>What Else? - Movie Match Finder</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>What Else? — Movie & Actor Match Finder</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <header>
-    <h1>🎬 What Else?</h1>
-    <p>Find what else your favorite actors have worked on—together.</p>
+  <header class="site-header">
+    <h1 class="title">🎬 What Else?</h1>
+    <p class="subtitle">Discover how your favorite actors or films connect.</p>
+    <button id="darkToggle" title="Toggle Dark Mode">🌓</button>
   </header>
 
-  <main>
-    <!-- Dynamic Actor Inputs -->
-    <section id="actorInputs" class="input-container"></section>
-
-    <!-- Action Buttons -->
-    <div class="button-row">
-      <button id="searchBtn">🔍 Search</button>
-      <button id="clearBtn">🧹 Clear</button>
-      <button onclick="addActorInput()">➕ Add Actor</button>
+  <main class="container">
+    <!-- Controls -->
+    <div class="controls">
+      <select id="modeSelect">
+        <option value="actors">Compare Actors</option>
+        <option value="films">Compare Films</option>
+      </select>
+      <div class="btn-group">
+        <button id="searchBtn" class="btn-red">🔍 Search</button>
+        <button id="shuffleBtn" class="btn-blue">🎲 Shuffle</button>
+        <button id="addBtn" class="btn-green">➕ Add</button>
+        <button id="clearBtn" class="btn-orange">🧹 Clear</button>
+      </div>
     </div>
 
-    <!-- Results Display -->
+    <!-- Inputs -->
+    <div id="inputSection" class="input-section"></div>
+
+    <!-- Header with thumbnails -->
+    <div id="comparisonHeader" class="btn-group"></div>
+
+    <!-- Results -->
     <section id="results" class="results-section"></section>
   </main>
 
-  <footer>
-    <p style="margin-top: 2rem; color: #aaa;">Powered by TMDb • Built with ❤️</p>
+  <footer class="site-footer">
+    <p>Powered by TMDb • Built under the watchful eyes of Barb ❤️ with love.</p>
   </footer>
 
-  <!-- Link to the matching script -->
   <script src="script.js"></script>
 </body>
 </html>
