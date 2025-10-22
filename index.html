@@ -11,17 +11,19 @@
   <header class="site-header">
     <h1 class="title">🎬 What Else?</h1>
     <p class="subtitle">Discover how your favorite actors or films connect.</p>
-    <button id="darkToggle" title="Toggle Dark Mode">🌓</button>
+    <!-- Dark mode toggle removed -->
   </header>
 
   <main class="container">
     <!-- Controls -->
-    <div class="controls">
-      <select id="modeSelect">
+    <div class="controls" role="region" aria-label="Controls">
+      <label for="modeSelect" class="sr-only">Compare Mode</label>
+      <select id="modeSelect" aria-label="Compare Mode">
         <option value="actors">Compare Actors</option>
         <option value="films">Compare Films</option>
       </select>
-      <div class="btn-group">
+
+      <div class="btn-group" role="group" aria-label="Primary actions">
         <button id="searchBtn" class="btn-red">🔍 Search</button>
         <button id="shuffleBtn" class="btn-blue">🎲 Shuffle</button>
         <button id="addBtn" class="btn-green">➕ Add</button>
@@ -29,20 +31,30 @@
       </div>
     </div>
 
-    <!-- Inputs -->
-    <div id="inputSection" class="input-section"></div>
+    <!-- Inputs (script.js will populate .input-wrapper blocks here) -->
+    <div id="inputSection" class="input-section" role="region" aria-label="Search Inputs"></div>
 
-    <!-- Header with thumbnails -->
-    <div id="comparisonHeader" class="btn-group"></div>
+    <!-- Sticky comparison header thumbnails -->
+    <div id="comparisonHeader"></div>
 
     <!-- Results -->
-    <section id="results" class="results-section"></section>
+    <section id="results" class="results-section" role="region" aria-label="Results"></section>
   </main>
 
   <footer class="site-footer">
     <p>Powered by TMDb • Built under the watchful eyes of Barb ❤️ with love.</p>
   </footer>
 
+  <script>
+    // Optional: hide-only utility for screen readers
+    // Add this once if you don't already have a global .sr-only class in your CSS
+    (function injectSrOnly(){
+      const css = `.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}`;
+      const style = document.createElement('style');
+      style.textContent = css;
+      document.head.appendChild(style);
+    })();
+  </script>
   <script src="script.js"></script>
 </body>
 </html>
