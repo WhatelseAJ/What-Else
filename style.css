@@ -10,13 +10,15 @@ body {
   transition: background 0.4s ease, color 0.4s ease;
 }
 
-body.dark {
-  background: linear-gradient(135deg, #111, #333);
-  color: #eee;
-}
+/* Removed .dark mode entirely */
 
 .site-header {
   padding: 2rem 1rem 1rem;
+}
+
+/* Removed darkToggle button */
+#darkToggle {
+  display: none;
 }
 
 .title {
@@ -28,17 +30,6 @@ body.dark {
 .subtitle {
   font-size: 1.25rem;
   opacity: 0.9;
-}
-
-#darkToggle {
-  position: absolute;
-  top: 1rem;
-  right: 1rem;
-  background: none;
-  border: none;
-  font-size: 1.5rem;
-  cursor: pointer;
-  color: white;
 }
 
 .container {
@@ -163,11 +154,6 @@ body.dark {
   box-shadow: 0 0 8px rgba(255, 255, 255, 0.3);
   transition: transform 0.3s ease, background-color 0.3s ease;
   backdrop-filter: blur(3px);
-}
-
-body.dark .result-card {
-  background-color: rgba(255, 255, 255, 0.05);
-  color: #eee;
 }
 
 .result-card:hover {
