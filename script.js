@@ -1,63 +1,85 @@
-// What Else? — JS (Actors + optional TV)
-// TMDb API
+/**
+ * What Else? — Movie & Actor Match Finder
+ * Powered by TMDb API
+ */
+
 const apiKey = "52a00342238189a79c137a328380b9d0";
 let currentMode = "actors";
-let includeTV = true; // default ON
+let includeTV = false; // TV results now OFF by default
 let debounceTimer;
 
+// --- Initialization ---
+
 window.addEventListener("DOMContentLoaded", () => {
-  // Wire controls
   qs("#modeSelect").addEventListener("change", switchMode);
   qs("#searchBtn").addEventListener("click", handleSearch);
   qs("#shuffleBtn").addEventListener("click", shuffleSearch);
-  qs("#addBtn").addEventListener("click", addInput);
-  qs("#clearBtn").addEventListener("click", clearAll);
+  qs("#addBtn").addEventListener("click", () => {
+    addInput();
+    resetSuccessState();
+  });
+  qs("#clearBtn").addEventListener("click", () => clearAll());
 
-  // Inject a lightweight "Include TV" checkbox into .controls (no HTML changes needed)
   injectIncludeTvCheckbox();
-
-  // Start
   switchMode();
 });
 
 /* ------------------ UI Helpers ------------------ */
+
 function qs(sel, parent = document) { return parent.querySelector(sel); }
 function qsa(sel, parent = document) { return [...parent.querySelectorAll(sel)]; }
-function clearNode(node) { node && (node.innerHTML = ""); }
-function showLoading() { qs("#results").innerHTML = `<p>Loading...</p>`; }
-function showEmpty(msg = "No overlaps found. Try adjusting your inputs or use Shuffle.") {
-  qs("#results").innerHTML = `<p>${msg}</p>`;
+function clearNode(node) { if (node) node.innerHTML = ""; }
+
+function showLoading() { 
+  qs("#results").innerHTML = `<div style="grid-column: 1/-1; padding: 2rem;"><p>Searching connections...</p></div>`; 
 }
+
+function showEmpty(msg = "No overlaps found. Try different names or use Shuffle!") {
+  qs("#results").innerHTML = `<div style="grid-column: 1/-1; padding: 2rem;"><p>${msg}</p></div>`;
+}
+
+function resetSuccessState() {
+  qsa(".entry-input").forEach(i => i.classList.remove("success-glow"));
+}
+
+/**
+ * Injects the TV toggle (Off by default)
+ */
 function injectIncludeTvCheckbox() {
   const controls = qs(".controls");
   if (!controls || qs("#includeTv")) return;
 
-  const label = document.createElement("label");
-  label.style.marginLeft = "0.75rem";
-  label.style.display = "inline-flex";
-  label.style.alignItems = "center";
-  label.style.gap = "0.35rem";
+  const wrapper = document.createElement("div");
+  wrapper.className = "tv-toggle-wrapper";
+  wrapper.style.cssText = "margin-top: 1rem; display: flex; align-items: center; justify-content: center; gap: 0.5rem; font-size: 0.9rem; opacity: 0.9;";
 
   const input = document.createElement("input");
   input.type = "checkbox";
   input.id = "includeTv";
-  input.checked = true;
+  input.checked = false; // UI matches the default state
 
-  input.addEventListener("change", () => {
-    includeTV = input.checked;
-    // If user toggles while in actors mode, we can optionally re-run search
-    // (keeping it simple: don’t auto-run; they can click Search again)
+  const label = document.createElement("label");
+  label.htmlFor = "includeTv";
+  label.textContent = "Include TV Credits";
+  label.style.cursor = "pointer";
+
+  input.addEventListener("change", () => { 
+    includeTV = input.checked; 
+    // If a search was already performed, refresh automatically
+    const entries = qsa(".entry-input").map(i => i.value.trim()).filter(Boolean);
+    if (entries.length >= 2) handleSearch();
   });
 
-  label.appendChild(input);
-  label.appendChild(document.createTextNode("Include TV"));
-  controls.appendChild(label);
+  wrapper.appendChild(input);
+  wrapper.appendChild(label);
+  controls.appendChild(wrapper);
 }
 
-/* ------------------ Mode & Inputs ------------------ */
+/* ------------------ Input Management ------------------ */
+
 function switchMode() {
-  currentMode = qs("#modeSelect").value; // 'actors' or 'films'
-  clearAll(); // will also add two fresh inputs
+  currentMode = qs("#modeSelect").value; 
+  clearAll(); 
 }
 
 function addInput(prefill = "") {
@@ -66,86 +88,65 @@ function addInput(prefill = "") {
 
   const input = document.createElement("input");
   input.type = "text";
-  input.placeholder = currentMode === "actors"
-    ? "Enter actor or director name"
-    : "Enter movie title";
+  input.placeholder = currentMode === "actors" ? "e.g. Cillian Murphy" : "e.g. Inception";
   input.className = "entry-input";
   input.autocomplete = "off";
   if (prefill) input.value = prefill;
 
+  // Small X button on the far right inside the box
+  const clearBtn = document.createElement("button");
+  clearBtn.className = "clear-input-btn";
+  clearBtn.innerHTML = "&times;";
+  clearBtn.title = "Clear this field";
+  clearBtn.addEventListener("click", () => {
+    input.value = "";
+    input.classList.remove("success-glow");
+    input.focus();
+  });
+
   const box = document.createElement("div");
   box.className = "autocomplete-suggestions";
 
-  input.addEventListener("input", () => handleAutocomplete(input, box));
+  input.addEventListener("input", () => {
+    input.classList.remove("success-glow");
+    handleAutocomplete(input, box);
+  });
+
   input.addEventListener("keydown", (e) => {
-    // Enter selects top suggestion if open
-    if (e.key === "Enter" && box.firstElementChild) {
-      const top = box.firstElementChild;
-      input.value = top?.dataset?.label || input.value;
-      box.innerHTML = "";
+    if (e.key === "Enter") {
+      if (box.firstElementChild) {
+        input.value = box.firstElementChild.dataset.label;
+        clearNode(box);
+      } else {
+        handleSearch();
+      }
       e.preventDefault();
     }
   });
-  input.addEventListener("blur", () => setTimeout(() => (box.innerHTML = ""), 180));
+
+  input.addEventListener("blur", () => setTimeout(() => clearNode(box), 200));
 
   wrap.appendChild(input);
+  wrap.appendChild(clearBtn);
   wrap.appendChild(box);
   qs("#inputSection").appendChild(wrap);
 }
 
-/* ------------------ Autocomplete ------------------ */
-async function handleAutocomplete(input, box) {
-  const query = input.value.trim();
-  if (!query) { box.innerHTML = ""; return; }
+/* ------------------ Search & Logic ------------------ */
 
-  clearTimeout(debounceTimer);
-  debounceTimer = setTimeout(async () => {
-    try {
-      const type = currentMode === "actors" ? "person" : "movie";
-      const url = `https://api.themoviedb.org/3/search/${type}?api_key=${apiKey}&query=${encodeURIComponent(query)}&include_adult=false`;
-      const data = await (await fetch(url)).json();
-      const results = (data?.results || []).slice(0, 8);
-      box.innerHTML = "";
-
-      results.forEach((s) => {
-        const div = document.createElement("div");
-        div.className = "suggestion-item";
-        div.dataset.label = s.title || s.name;
-
-        const imgPath = s.profile_path || s.poster_path;
-        const img = imgPath
-          ? `<img src="https://image.tmdb.org/t/p/w92${imgPath}" alt="">`
-          : "";
-
-        const sub = currentMode === "actors"
-          ? (s.known_for_department ? ` · ${s.known_for_department}` : "")
-          : (s.release_date ? ` · ${s.release_date.slice(0, 4)}` : "");
-
-        div.innerHTML = `${img}<span>${div.dataset.label}${sub}</span>`;
-        div.addEventListener("mousedown", () => {
-          input.value = div.dataset.label;
-          box.innerHTML = "";
-        });
-        box.appendChild(div);
-      });
-    } catch {
-      box.innerHTML = "";
-    }
-  }, 250);
-}
-
-/* ------------------ Search Flow ------------------ */
 async function handleSearch() {
   const entries = qsa(".entry-input")
-    .map((i) => i.value.trim())
+    .map(i => i.value.trim())
     .filter(Boolean);
 
   if (entries.length < 2) {
-    alert("Enter at least two entries.");
+    alert("Please enter at least two names/titles to find a connection.");
     return;
   }
 
+  resetSuccessState();
   showLoading();
+  clearNode(qs("#comparisonHeader"));
 
   try {
     if (currentMode === "actors") {
@@ -153,232 +154,193 @@ async function handleSearch() {
     } else {
       await compareFilms(entries);
     }
-  } catch {
-    showEmpty("Something went wrong. Please try again.");
+  } catch (err) {
+    console.error(err);
+    showEmpty("Connection error. Please check your internet or try again.");
   }
 }
 
-/* ------------------ TMDb Helpers ------------------ */
-async function getIdByName(name, type) {
-  // type: 'person' or 'movie'
-  const url = `https://api.themoviedb.org/3/search/${type}?api_key=${apiKey}&query=${encodeURIComponent(name)}&include_adult=false`;
-  const res = await fetch(url);
-  const data = await res.json();
-  return data.results?.[0]?.id || null;
+function highlightWinners() {
+  qsa(".entry-input").forEach(input => {
+    if (input.value.trim() !== "") {
+      input.classList.add("success-glow");
+    }
+  });
 }
 
-/**
- * getCredits
- * - For 'person': returns normalized credits for MOVIES and, if includeTV, TV.
- *   Each item: { media_type:'movie'|'tv', id:number, year:number, _role:string }
- * - For 'movie': returns combined cast+crew, normalized to { id, _role }
- */
-async function getCredits(id, type, opts = { includeTV: true }) {
+async function getIdByName(name, type) {
+  const url = `https://api.themoviedb.org/3/search/${type}?api_key=${apiKey}&query=${encodeURIComponent(name)}&include_adult=false`;
+  const data = await fetchJSON(url);
+  return data?.results?.[0]?.id || null;
+}
+
+async function getCredits(id, type, opts = { includeTV: false }) {
   if (!id) return [];
 
   if (type === "person") {
-    // PERSON: merge movie_credits and (optionally) tv_credits, keep roles + year
     const [movieData, tvData] = await Promise.all([
       fetchJSON(`https://api.themoviedb.org/3/person/${id}/movie_credits?api_key=${apiKey}`),
-      opts.includeTV
-        ? fetchJSON(`https://api.themoviedb.org/3/person/${id}/tv_credits?api_key=${apiKey}`)
-        : null
+      opts.includeTV ? fetchJSON(`https://api.themoviedb.org/3/person/${id}/tv_credits?api_key=${apiKey}`) : null
     ]);
 
-    const movies = normalizePersonMovieCredits(movieData);
-    const tv = opts.includeTV ? normalizePersonTvCredits(tvData) : [];
-    return movies.concat(tv);
+    const movies = normalizeCredits(movieData, "movie");
+    const tv = opts.includeTV ? normalizeCredits(tvData, "tv") : [];
+    return [...movies, ...tv];
   }
 
-  // MOVIE: we only compare films in "films" mode, so TV is irrelevant here.
   const data = await fetchJSON(`https://api.themoviedb.org/3/movie/${id}/credits?api_key=${apiKey}`);
-  const merged = []
-    .concat((data?.cast || []).map(p => ({ id: p.id, _role: p.character || "?" })))
-    .concat((data?.crew || []).map(p => ({ id: p.id, _role: p.job || "?" })));
-  return merged;
+  return [
+    ...(data?.cast || []).map(p => ({ id: p.id, _role: p.character || "Actor" })),
+    ...(data?.crew || []).map(p => ({ id: p.id, _role: p.job || "Crew" }))
+  ];
 }
 
-function normalizePersonMovieCredits(movieData) {
-  const cast = (movieData?.cast || []).map(c => ({
-    media_type: "movie",
+function normalizeCredits(data, mediaType) {
+  if (!data) return [];
+  const cast = (data.cast || []).map(c => ({
+    media_type: mediaType,
     id: c.id,
-    _role: c.character || "?",
-    year: yearFromDate(c.release_date)
+    _role: c.character || "Actor",
+    year: yearFromDate(mediaType === "movie" ? c.release_date : c.first_air_date)
   }));
-  const crew = (movieData?.crew || []).map(c => ({
-    media_type: "movie",
+  const crew = (data.crew || []).map(c => ({
+    media_type: mediaType,
     id: c.id,
-    _role: c.job || "?",
-    year: yearFromDate(c.release_date)
+    _role: c.job || "Crew",
+    year: yearFromDate(mediaType === "movie" ? c.release_date : c.first_air_date)
   }));
-  return cast.concat(crew);
-}
-
-function normalizePersonTvCredits(tvData) {
-  const cast = (tvData?.cast || []).map(c => ({
-    media_type: "tv",
-    id: c.id,
-    _role: c.character || "?",
-    year: yearFromDate(c.first_air_date)
-  }));
-  const crew = (tvData?.crew || []).map(c => ({
-    media_type: "tv",
-    id: c.id,
-    _role: c.job || "?",
-    year: yearFromDate(c.first_air_date)
-  }));
-  return cast.concat(crew);
+  return [...cast, ...crew];
 }
 
 function yearFromDate(d) {
   return d && d.length >= 4 ? Number(d.slice(0, 4)) : 0;
 }
 
-/* ------------------ Compare: Actors ------------------ */
-// cache for year by key "media:id"
-const titleYearsCache = {};
-
 async function compareActors(names) {
-  const ids = await Promise.all(names.map((n) => getIdByName(n, "person")));
-  const creditsList = await Promise.all(
-    ids.map((id) => getCredits(id, "person", { includeTV }))
-  );
+  const ids = await Promise.all(names.map(n => getIdByName(n, "person")));
+  const validIds = ids.filter(id => id !== null);
 
-  // Map "media:id" -> role array aligned with names[]
+  if (validIds.length < names.length) { 
+    showEmpty("Could not find one or more actors. Please check spelling."); 
+    return; 
+  }
+
+  const creditsList = await Promise.all(validIds.map(id => getCredits(id, "person", { includeTV })));
   const map = new Map();
+  const yearCache = {};
 
   creditsList.forEach((credits, i) => {
-    credits.forEach((c) => {
+    credits.forEach(c => {
       const key = `${c.media_type}:${c.id}`;
       if (!map.has(key)) map.set(key, Array(names.length).fill(null));
-      const arr = map.get(key);
-      arr[i] = c._role || "?";
-
-      // record year for sorting
-      if (!titleYearsCache[key]) titleYearsCache[key] = Number(c.year || 0);
+      map.get(key)[i] = c._role;
+      yearCache[key] = c.year;
     });
   });
 
-  // keep only where all names have a role
-  const shared = [...map.entries()].filter(([, roles]) =>
-    roles.every((r) => r && String(r).trim().length > 0)
-  );
+  const shared = [...map.entries()].filter(([, roles]) => roles.every(r => r !== null));
+  shared.sort((a, b) => (yearCache[b[0]] || 0) - (yearCache[a[0]] || 0));
 
-  // Sort by year desc (newest → oldest)
-  shared.sort((a, b) => (titleYearsCache[b[0]] || 0) - (titleYearsCache[a[0]] || 0));
-
-  await displayTitles(shared, names);   // supports movie + TV
+  if (shared.length > 0) {
+    highlightWinners();
+    await displayTitles(shared, names);
+  } else {
+    showEmpty();
+  }
   displayHeaders(names, "person");
 }
 
-/* ------------------ Compare: Films ------------------ */
 async function compareFilms(titles) {
-  const ids = await Promise.all(titles.map((t) => getIdByName(t, "movie")));
-  const peopleLists = await Promise.all(ids.map((id) => getCredits(id, "movie")));
+  const ids = await Promise.all(titles.map(t => getIdByName(t, "movie")));
+  const validIds = ids.filter(id => id !== null);
 
-  // Map personId -> role array aligned with titles[]
+  if (validIds.length < titles.length) { 
+    showEmpty("Could not find one or more films."); 
+    return; 
+  }
+
+  const peopleLists = await Promise.all(validIds.map(id => getCredits(id, "movie")));
   const map = new Map();
+
   peopleLists.forEach((people, i) => {
-    people.forEach((p) => {
+    people.forEach(p => {
       if (!map.has(p.id)) map.set(p.id, Array(titles.length).fill(null));
-      const arr = map.get(p.id);
-      arr[i] = p._role || "?";
+      map.get(p.id)[i] = p._role;
     });
   });
 
-  const shared = [...map.entries()].filter(([, roles]) =>
-    roles.every((r) => r && String(r).trim().length > 0)
-  );
+  const shared = [...map.entries()].filter(([, roles]) => roles.every(r => r !== null));
 
-  // We’ll sort by popularity later during displayPeople (via cache)
-  await displayPeople(shared, titles);
+  if (shared.length > 0) {
+    highlightWinners();
+    await displayPeople(shared, titles);
+  } else {
+    showEmpty();
+  }
   displayHeaders(titles, "movie");
 }
 
-/* ------------------ Display (Movies + TV) ------------------ */
-const personPopularityCache = {};
+/* ------------------ Display Results ------------------ */
 
 async function displayTitles(entries, names) {
   const container = qs("#results");
   clearNode(container);
 
-  if (!entries.length) { showEmpty(); return; }
+  const details = await Promise.all(entries.map(([key]) => {
+    const [media, id] = key.split(":");
+    return fetchJSON(`https://api.themoviedb.org/3/${media}/${id}?api_key=${apiKey}`);
+  }));
 
-  for (const [key, roles] of entries) {
-    const [media, idStr] = key.split(":");
-    const id = Number(idStr);
-
-    // fetch details based on media type
-    const detail = await fetchJSON(
-      media === "tv"
-        ? `https://api.themoviedb.org/3/tv/${id}?api_key=${apiKey}`
-        : `https://api.themoviedb.org/3/movie/${id}?api_key=${apiKey}`
-    );
-    if (!detail) continue;
-
-    const posterPath = detail.poster_path;
-    const poster = posterPath ? `https://image.tmdb.org/t/p/w300${posterPath}` : "";
-    const title = media === "tv" ? (detail.name || "Untitled") : (detail.title || "Untitled");
-    const year = media === "tv" ? yearFromDate(detail.first_air_date) : yearFromDate(detail.release_date);
-    const score = Number(detail.vote_average || 0).toFixed(1);
-
-    // Label TV vs Movie in the heading
-    const mediaTag = media === "tv" ? `<span style="font-size:0.8rem;opacity:.9">[TV]</span> ` : "";
-
+  details.forEach((detail, idx) => {
+    if (!detail) return;
+    const [key, roles] = entries[idx];
+    const [media, id] = key.split(":");
     const card = document.createElement("div");
     card.className = "result-card";
-
-    const rolesHTML = names
-      .map((name, i) => `<p><strong>${escapeHTML(name)}</strong>: ${escapeHTML(roles[i] || "?")}</p>`)
-      .join("");
+    const title = detail.title || detail.name;
+    const year = yearFromDate(detail.release_date || detail.first_air_date);
 
     card.innerHTML = `
-      <a href="https://www.themoviedb.org/${media}/${id}" target="_blank" rel="noopener">
-        ${poster ? `<img src="${poster}" alt="${escapeHTML(title)} poster" />` : ""}
-        <h3>${mediaTag}${escapeHTML(title)} (${year || "—"})</h3>
-        <p>⭐ ${score} / 10</p>
+      <a href="https://www.themoviedb.org/${media}/${id}" target="_blank" rel="noopener" style="text-decoration:none; color:inherit;">
+        <img src="${detail.poster_path ? 'https://image.tmdb.org/t/p/w300' + detail.poster_path : ''}" alt="${title}">
+        <h3>${media.toUpperCase()}: ${escapeHTML(title)} (${year || 'N/A'})</h3>
       </a>
-      ${rolesHTML}
+      <div class="roles-list" style="margin-top: 10px; font-size: 0.9rem;">
+        ${names.map((name, i) => `<p><strong>${escapeHTML(name)}:</strong> ${escapeHTML(roles[i])}</p>`).join('')}
+      </div>
     `;
     container.appendChild(card);
-  }
+  });
 }
 
 async function displayPeople(entries, titles) {
   const container = qs("#results");
   clearNode(container);
 
-  if (!entries.length) { showEmpty(); return; }
+  const peopleWithDetails = await Promise.all(
+    entries.slice(0, 24).map(async ([id, roles]) => {
+      const p = await fetchJSON(`https://api.themoviedb.org/3/person/${id}?api_key=${apiKey}`);
+      return { p, roles };
+    })
+  );
 
-  // sort by popularity (fetching person details to cache popularity)
-  const withPop = [];
-  for (const [id, roles] of entries) {
-    const person = await fetchJSON(`https://api.themoviedb.org/3/person/${id}?api_key=${apiKey}`);
-    if (!person) continue;
-    personPopularityCache[id] = Number(person.popularity || 0);
-    withPop.push({ person, roles });
-  }
-  withPop.sort((a, b) => (b.person.popularity || 0) - (a.person.popularity || 0));
-
-  for (const { person, roles } of withPop) {
-    const photo = person.profile_path ? `https://image.tmdb.org/t/p/w300${person.profile_path}` : "";
-
-    const card = document.createElement("div");
-    card.className = "result-card";
-
-    const rolesHTML = titles
-      .map((title, i) => `<p><strong>${escapeHTML(title)}</strong>: ${escapeHTML(roles[i] || "?")}</p>`)
-      .join("");
-
-    card.innerHTML = `
-      <a href="https://www.themoviedb.org/person/${person.id}" target="_blank" rel="noopener">
-        ${photo ? `<img src="${photo}" alt="${escapeHTML(person.name)} headshot" />` : ""}
-        <h3>${escapeHTML(person.name)}</h3>
-      </a>
-      ${rolesHTML}
-    `;
-    container.appendChild(card);
-  }
+  peopleWithDetails
+    .filter(item => item.p)
+    .sort((a, b) => b.p.popularity - a.p.popularity)
+    .forEach(({ p, roles }) => {
+      const card = document.createElement("div");
+      card.className = "result-card";
+      card.innerHTML = `
+        <a href="https://www.themoviedb.org/person/${p.id}" target="_blank" rel="noopener" style="text-decoration:none; color:inherit;">
+          <img src="${p.profile_path ? 'https://image.tmdb.org/t/p/w300' + p.profile_path : ''}" alt="${p.name}">
+          <h3>${escapeHTML(p.name)}</h3>
+        </a>
+        <div class="roles-list" style="margin-top: 10px; font-size: 0.9rem;">
+          ${titles.map((t, i) => `<p><strong>${escapeHTML(t)}:</strong> ${escapeHTML(roles[i])}</p>`).join('')}
+        </div>
+      `;
+      container.appendChild(card);
+    });
 }
 
 function displayHeaders(items, type) {
@@ -388,52 +350,78 @@ function displayHeaders(items, type) {
   items.forEach(async (label) => {
     const id = await getIdByName(label, type);
     if (!id) return;
-
     const data = await fetchJSON(`https://api.themoviedb.org/3/${type}/${id}?api_key=${apiKey}`);
     if (!data) return;
 
     const imgPath = data.profile_path || data.poster_path;
-    const imgUrl = imgPath ? `https://image.tmdb.org/t/p/w92${imgPath}` : "";
+    const linkPath = type === "person" ? "person" : "movie";
+
     const div = document.createElement("div");
+    div.style.textAlign = "center";
     div.innerHTML = `
-      ${imgUrl ? `<img src="${imgUrl}" alt="" />` : ""}
-      <p>${escapeHTML(label)}</p>
+      <a href="https://www.themoviedb.org/${linkPath}/${id}" target="_blank" rel="noopener">
+        <img src="${imgPath ? 'https://image.tmdb.org/t/p/w92' + imgPath : ''}" 
+             alt="${label}" 
+             style="width:60px; height:60px; object-fit:cover; border-radius:50%; border:2px solid white; cursor:pointer;">
+      </a>
+      <p style="font-size:0.75rem; margin-top:5px; max-width:80px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escapeHTML(label)}</p>
     `;
     container.appendChild(div);
   });
 }
 
-/* ------------------ Shuffle / Clear ------------------ */
-function shuffleSearch() {
-  const actorPool = [
-    "Tom Hanks","Scarlett Johansson","Brad Pitt","Robert Downey Jr.",
-    "Natalie Portman","Samuel L. Jackson","Florence Pugh","Jake Gyllenhaal",
-    "Leonardo DiCaprio","Jennifer Lawrence","Christian Bale","Zendaya",
-    "Matt Damon","Emma Stone","Morgan Freeman","Viola Davis"
-  ];
+/* ------------------ Autocomplete & Utility ------------------ */
 
-  const filmPool = [
-    "The Matrix","Inception","Forrest Gump","La La Land",
-    "Mad Max: Fury Road","Parasite","Dune","The Dark Knight",
-    "The Social Network","Pulp Fiction","The Grand Budapest Hotel",
-    "No Country for Old Men","Arrival","Everything Everywhere All At Once",
-    "Top Gun: Maverick","Her","Whiplash","Interstellar"
-  ];
+async function handleAutocomplete(input, box) {
+  const query = input.value.trim();
+  if (!query) { clearNode(box); return; }
 
-  const pool = currentMode === "actors" ? actorPool : filmPool;
-  const [first, second] = getTwoRandomItems(pool);
+  clearTimeout(debounceTimer);
+  debounceTimer = setTimeout(async () => {
+    try {
+      const type = currentMode === "actors" ? "person" : "movie";
+      const url = `https://api.themoviedb.org/3/search/${type}?api_key=${apiKey}&query=${encodeURIComponent(query)}&include_adult=false`;
+      const data = await fetchJSON(url);
+      const results = (data?.results || []).slice(0, 6);
+      clearNode(box);
 
-  clearAll(false); // do not auto-add inputs yet
-  addInput(first);
-  addInput(second);
-  handleSearch();
+      results.forEach((s) => {
+        const div = document.createElement("div");
+        div.className = "suggestion-item";
+        div.dataset.label = s.title || s.name;
+
+        const imgPath = s.profile_path || s.poster_path;
+        const img = imgPath 
+          ? `<img src="https://image.tmdb.org/t/p/w92${imgPath}" alt="">` 
+          : `<div style="width:40px;height:55px;background:#ddd;border-radius:4px"></div>`;
+
+        const info = currentMode === "actors"
+          ? (s.known_for_department || "Acting")
+          : (s.release_date ? s.release_date.slice(0, 4) : "N/A");
+
+        div.innerHTML = `${img}<span>${div.dataset.label}<br><small style="opacity:0.6">${info}</small></span>`;
+        div.addEventListener("mousedown", () => {
+          input.value = div.dataset.label;
+          clearNode(box);
+        });
+        box.appendChild(div);
+      });
+    } catch (err) {
+      console.error("Autocomplete error:", err);
+    }
+  }, 300);
 }
 
-function getTwoRandomItems(arr) {
-  const copy = [...arr];
-  const first = copy.splice(Math.floor(Math.random() * copy.length), 1)[0];
-  const second = copy[Math.floor(Math.random() * copy.length)];
-  return [first, second];
+function shuffleSearch() {
+  const actorPool = ["Tom Hanks", "Cillian Murphy", "Zendaya", "Leonardo DiCaprio", "Florence Pugh", "Brad Pitt", "Viola Davis", "Matt Damon", "Meryl Streep"];
+  const filmPool = ["Inception", "The Dark Knight", "Pulp Fiction", "The Matrix", "Interstellar", "Dune", "Gladiator", "The Godfather"];
+  const pool = currentMode === "actors" ? actorPool : filmPool;
+
+  const shuffled = pool.sort(() => 0.5 - Math.random());
+  clearAll(false);
+  addInput(shuffled[0]);
+  addInput(shuffled[1]);
+  handleSearch();
 }
 
 function clearAll(addTwo = true) {
@@ -443,22 +431,14 @@ function clearAll(addTwo = true) {
   if (addTwo) { addInput(); addInput(); }
 }
 
-/* ------------------ Utils ------------------ */
 async function fetchJSON(url) {
   try {
     const res = await fetch(url);
-    if (!res.ok) return null;
-    return await res.json();
-  } catch {
-    return null;
-  }
+    return res.ok ? await res.json() : null;
+  } catch { return null; }
 }
 
 function escapeHTML(str) {
-  return String(str)
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
+  if (!str) return "";
+  return String(str).replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[m]));
 }
