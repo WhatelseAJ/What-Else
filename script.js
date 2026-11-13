@@ -89,7 +89,8 @@ async function loadDiscovery(endpoint, containerId) {
   });
   loadedViews.add(containerId === "peopleGrid" ? "people" : "explore");
 }
-\n/* ------------------ UI Helpers ------------------ */
+
+/* ------------------ UI Helpers ------------------ */
 
 function qs(sel, parent = document) { return parent.querySelector(sel); }
 function qsa(sel, parent = document) { return [...parent.querySelectorAll(sel)]; }
