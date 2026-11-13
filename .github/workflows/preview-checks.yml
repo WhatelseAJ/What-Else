@@ -1,0 +1,24 @@
+name: Preview checks
+
+on:
+  push:
+    branches: [foundation-performance]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Check JavaScript syntax
+        run: |
+          node --check script.js
+          node --check server.mjs
+      - name: Run smoke tests
+        run: npm test
