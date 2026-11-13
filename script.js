@@ -395,7 +395,7 @@ async function handleAutocomplete(input, box) {
           ? `<img src="https://image.tmdb.org/t/p/w92${imgPath}" alt="">` 
           : `<div style="width:40px;height:55px;background:#ddd;border-radius:4px"></div>`;
 
-        const info = currentMode === "actors"
+        const info = requestMode === "actors"
           ? (s.known_for_department || "Acting")
           : (s.release_date ? s.release_date.slice(0, 4) : "N/A");
 
@@ -425,6 +425,7 @@ function shuffleSearch() {
 }
 
 function clearAll(addTwo = true) {
+  activeSearchId++;
   clearNode(qs("#inputSection"));
   clearNode(qs("#results"));
   clearNode(qs("#comparisonHeader"));
