@@ -1,51 +1,81 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>What Else? — Movie & Actor Match Finder</title>
-  
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css" />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#080b14">
+  <meta name="description" content="Find the connections between actors, directors, and films.">
+  <title>What Else? — Find the connections</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
-
-  <header class="site-header">
-    <h1 class="title">🎬 What Else?</h1>
-    <p class="subtitle">Discover how your favorite actors or films connect.</p>
+  <div class="ambient ambient-blue"></div><div class="ambient ambient-red"></div>
+  <header class="app-header">
+    <a class="brand" href="#home" aria-label="What Else home"><span class="brand-mark">W</span><span>WHAT ELSE<span class="brand-dot">.</span></span></a>
+    <nav class="main-nav" aria-label="Main navigation">
+      <button class="nav-link active" data-view="home">Home</button>
+      <button class="nav-link" data-view="compare">Compare</button>
+      <button class="nav-link" data-view="people">People</button>
+      <button class="nav-link" data-view="explore">Explore</button>
+    </nav>
+    <a class="header-cta" href="#compare" data-go="compare">Find a connection <span>↗</span></a>
   </header>
 
-  <main class="container">
-    <section class="controls" aria-label="Search Settings">
-      <div class="mode-selection">
-        <label for="modeSelect" class="sr-only">Choose Comparison Mode</label>
-        <select id="modeSelect">
-          <option value="actors">Compare Actors</option>
-          <option value="films">Compare Films</option>
-        </select>
+  <main class="app-main">
+    <section class="view active" id="view-home">
+      <div class="hero">
+        <div class="eyebrow"><span class="eyebrow-line"></span> THE MOVIES ARE MORE CONNECTED THAN YOU THINK</div>
+        <h1>One name leads<br>to <span class="gradient-text">another.</span></h1>
+        <p class="hero-copy">Find the hidden connections between the people and films you love. Pick a starting point and see where it goes.</p>
+        <div class="hero-actions">
+          <button class="primary-button" data-go="compare">Start connecting <span>→</span></button>
+          <button class="text-button" data-go="explore">Explore what's out there <span>↗</span></button>
+        </div>
+        <div class="hero-footnote"><span class="live-dot"></span> Powered by The Movie Database</div>
       </div>
-
-      <div class="btn-group" role="group" aria-label="Action Buttons">
-        <button id="searchBtn" class="btn-red" title="Find connections">🔍 Search</button>
-        <button id="shuffleBtn" class="btn-blue" title="Try a random pair">🎲 Shuffle</button>
-        <button id="addBtn" class="btn-green" title="Add another search field">➕ Add</button>
-        <button id="clearBtn" class="btn-orange" title="Clear everything">🧹 Clear</button>
+      <div class="home-feature-grid">
+        <button class="feature-card feature-compare" data-go="compare"><span class="feature-index">01 / CONNECT</span><span class="feature-icon">⌘</span><strong>Find the overlap.</strong><span>Compare actors or films and uncover shared credits.</span><span class="feature-arrow">↗</span></button>
+        <button class="feature-card feature-people" data-go="people"><span class="feature-index">02 / PEOPLE</span><span class="feature-icon">◎</span><strong>Meet the people.</strong><span>Browse familiar faces and the work behind them.</span><span class="feature-arrow">↗</span></button>
+        <button class="feature-card feature-explore" data-go="explore"><span class="feature-index">03 / DISCOVER</span><span class="feature-icon">✳</span><strong>Follow a rabbit hole.</strong><span>Find something new in trending films and TV.</span><span class="feature-arrow">↗</span></button>
       </div>
     </section>
 
-    <div id="inputSection" class="input-section" aria-live="polite"></div>
-
-    <div id="comparisonHeader" aria-hidden="true"></div>
-
-    <section id="results" class="results-section" aria-live="polite">
+    <section class="view" id="view-compare">
+      <div class="page-heading"><div class="eyebrow"><span class="eyebrow-line"></span> THE CONNECTION ENGINE</div><h2>What do they<br><span class="gradient-text">have in common?</span></h2><p>Choose a mode, add two or more names, and let the credits do the talking.</p></div>
+      <section class="compare-panel">
+        <div class="compare-toolbar">
+          <label class="field-label" for="modeSelect">COMPARE</label>
+          <select id="modeSelect"><option value="actors">Actors &amp; directors</option><option value="films">Films</option></select>
+        </div>
+        <div id="inputSection" class="input-section" aria-live="polite"></div>
+        <div class="compare-options"><label class="toggle-label"><input type="checkbox" id="includeTv"> <span class="toggle-ui"></span> Include TV credits</label><span class="option-note">At least two entries required</span></div>
+        <div class="action-row">
+          <button id="searchBtn" class="primary-button">Find connections <span>→</span></button>
+          <button id="shuffleBtn" class="secondary-button">Shuffle pair <span>⤨</span></button>
+          <button id="addBtn" class="secondary-button">+ Add another</button>
+          <button id="clearBtn" class="quiet-button">Clear</button>
+        </div>
       </section>
+      <div id="comparisonHeader" class="comparison-header" aria-hidden="true"></div>
+      <section id="results" class="results-section" aria-live="polite"></section>
+    </section>
+
+    <section class="view" id="view-people">
+      <div class="page-heading"><div class="eyebrow"><span class="eyebrow-line"></span> THE PEOPLE BEHIND THE PICTURE</div><h2>Familiar faces.<br><span class="gradient-text">Unexpected paths.</span></h2><p>Popular people across film and television, powered by TMDb.</p></div>
+      <div id="peopleGrid" class="discovery-grid"><p class="loading-note">Loading people…</p></div>
+    </section>
+
+    <section class="view" id="view-explore">
+      <div class="page-heading"><div class="eyebrow"><span class="eyebrow-line"></span> YOUR NEXT WATCH STARTS HERE</div><h2>Take the <span class="gradient-text">long way.</span></h2><p>Explore what's trending, then follow the cast and crew somewhere new.</p></div>
+      <div class="section-kicker">TRENDING THIS WEEK <span>FILM + TELEVISION</span></div>
+      <div id="exploreGrid" class="discovery-grid"><p class="loading-note">Loading what's trending…</p></div>
+    </section>
   </main>
 
-  <footer class="site-footer">
-    <p><em>Everything is figureoutable.</em></p>
-    <p>Powered by <strong>TMDb</strong> • Built under the watchful eyes of Barb ❤️</p>
-  </footer>
-
+  <footer class="app-footer"><span class="brand brand-footer"><span class="brand-mark">W</span><span>WHAT ELSE<span class="brand-dot">.</span></span></span><span>Made for the curious. Data by <a href="https://www.themoviedb.org/" target="_blank" rel="noopener">TMDb</a>.</span></footer>
   <script src="script.js"></script>
 </body>
 </html>

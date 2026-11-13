@@ -6,7 +6,10 @@
 const apiKey = "52a00342238189a79c137a328380b9d0";
 let currentMode = "actors";
 let includeTV = false; // TV results now OFF by default
-let debounceTimer;
+const autocompleteTimers = new WeakMap();
+const responseCache = new Map();
+let activeSearchId = 0;
+const CACHE_TTL = 5 * 60 * 1000;
 
 // --- Initialization ---
 
@@ -20,9 +23,72 @@ window.addEventListener("DOMContentLoaded", () => {
   });
   qs("#clearBtn").addEventListener("click", () => clearAll());
 
-  injectIncludeTvCheckbox();
+  qs("#includeTv").addEventListener("change", () => {
+    includeTV = qs("#includeTv").checked;
+    const entries = qsa(".entry-input").map(i => i.value.trim()).filter(Boolean);
+    if (entries.length >= 2) handleSearch();
+  });
+  setupNavigation();
   switchMode();
 });
+
+
+// --- App navigation and discovery views ---
+const loadedViews = new Set();
+
+function setupNavigation() {
+  qsa("[data-view]").forEach(button => button.addEventListener("click", () => navigateTo(button.dataset.view)));
+  qsa("[data-go]").forEach(button => button.addEventListener("click", () => navigateTo(button.dataset.go)));
+  window.addEventListener("hashchange", () => {
+    const requested = location.hash.replace("#", "");
+    if (["home", "compare", "people", "explore"].includes(requested)) navigateTo(requested, false);
+  });
+  const initial = location.hash.replace("#", "");
+  navigateTo(["home", "compare", "people", "explore"].includes(initial) ? initial : "home", false);
+}
+
+function navigateTo(view, updateHash = true) {
+  const target = qs("#view-" + view);
+  if (!target) return;
+  qsa(".view").forEach(section => section.classList.toggle("active", section === target));
+  qsa(".nav-link").forEach(link => link.classList.toggle("active", link.dataset.view === view));
+  if (updateHash && location.hash !== "#" + view) history.replaceState(null, "", "#" + view);
+  if (view === "people" && !loadedViews.has(view)) loadDiscovery("person", "peopleGrid");
+  if (view === "explore" && !loadedViews.has(view)) loadDiscovery("trending/all/week", "exploreGrid");
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+async function loadDiscovery(endpoint, containerId) {
+  const container = qs("#" + containerId);
+  if (!container) return;
+  container.innerHTML = '<p class="loading-note">Finding something worth a look…</p>';
+  const url = endpoint === "person"
+    ? `https://api.themoviedb.org/3/person/popular?api_key=${apiKey}&language=en-US&page=1`
+    : `https://api.themoviedb.org/3/trending/all/week?api_key=${apiKey}`;
+  const data = await fetchJSON(url);
+  if (!data || !Array.isArray(data.results)) {
+    container.innerHTML = '<p class="loading-note">Could not load this collection. Please try again.</p>';
+    return;
+  }
+  const items = data.results.slice(0, 18);
+  container.innerHTML = "";
+  items.forEach(item => {
+    const isPerson = endpoint === "person";
+    const name = isPerson ? item.name : (item.title || item.name);
+    const imagePath = isPerson ? item.profile_path : item.poster_path;
+    const year = (item.release_date || item.first_air_date || "").slice(0, 4);
+    const kind = isPerson ? (item.known_for_department || "Person") : (item.media_type === "tv" ? "TV" : "Film");
+    const card = document.createElement("a");
+    card.className = "discovery-card";
+    card.href = isPerson ? `https://www.themoviedb.org/person/${item.id}` : `https://www.themoviedb.org/${item.media_type}/${item.id}`;
+    card.target = "_blank";
+    card.rel = "noopener";
+    const image = imagePath ? `https://image.tmdb.org/t/p/w342${imagePath}` : "";
+    card.innerHTML = `<img src="${image}" alt="" loading="lazy"><div><strong>${escapeHTML(name || "Untitled")}</strong><span>${escapeHTML(kind)}${year ? " · " + year : ""}</span></div>`;
+    container.appendChild(card);
+  });
+  loadedViews.add(containerId === "peopleGrid" ? "people" : "explore");
+}
 
 /* ------------------ UI Helpers ------------------ */
 
@@ -135,6 +201,7 @@ function addInput(prefill = "") {
 /* ------------------ Search & Logic ------------------ */
 
 async function handleSearch() {
+  const searchId = ++activeSearchId;
   const entries = qsa(".entry-input")
     .map(i => i.value.trim())
     .filter(Boolean);
@@ -150,13 +217,13 @@ async function handleSearch() {
 
   try {
     if (currentMode === "actors") {
-      await compareActors(entries);
+      await compareActors(entries, searchId);
     } else {
-      await compareFilms(entries);
+      await compareFilms(entries, searchId);
     }
   } catch (err) {
     console.error(err);
-    showEmpty("Connection error. Please check your internet or try again.");
+    if (searchId === activeSearchId) showEmpty("Connection error. Please check your internet or try again.");
   }
 }
 
@@ -216,8 +283,9 @@ function yearFromDate(d) {
   return d && d.length >= 4 ? Number(d.slice(0, 4)) : 0;
 }
 
-async function compareActors(names) {
+async function compareActors(names, searchId) {
   const ids = await Promise.all(names.map(n => getIdByName(n, "person")));
+  if (searchId !== activeSearchId) return;
   const validIds = ids.filter(id => id !== null);
 
   if (validIds.length < names.length) { 
@@ -226,6 +294,7 @@ async function compareActors(names) {
   }
 
   const creditsList = await Promise.all(validIds.map(id => getCredits(id, "person", { includeTV })));
+  if (searchId !== activeSearchId) return;
   const map = new Map();
   const yearCache = {};
 
@@ -243,15 +312,16 @@ async function compareActors(names) {
 
   if (shared.length > 0) {
     highlightWinners();
-    await displayTitles(shared, names);
+    await displayTitles(shared, names, searchId);
   } else {
     showEmpty();
   }
-  displayHeaders(names, "person");
+  if (searchId === activeSearchId) displayHeaders(names, "person", searchId);
 }
 
-async function compareFilms(titles) {
+async function compareFilms(titles, searchId) {
   const ids = await Promise.all(titles.map(t => getIdByName(t, "movie")));
+  if (searchId !== activeSearchId) return;
   const validIds = ids.filter(id => id !== null);
 
   if (validIds.length < titles.length) { 
@@ -260,6 +330,7 @@ async function compareFilms(titles) {
   }
 
   const peopleLists = await Promise.all(validIds.map(id => getCredits(id, "movie")));
+  if (searchId !== activeSearchId) return;
   const map = new Map();
 
   peopleLists.forEach((people, i) => {
@@ -273,16 +344,16 @@ async function compareFilms(titles) {
 
   if (shared.length > 0) {
     highlightWinners();
-    await displayPeople(shared, titles);
+    await displayPeople(shared, titles, searchId);
   } else {
     showEmpty();
   }
-  displayHeaders(titles, "movie");
+  if (searchId === activeSearchId) displayHeaders(titles, "movie", searchId);
 }
 
 /* ------------------ Display Results ------------------ */
 
-async function displayTitles(entries, names) {
+async function displayTitles(entries, names, searchId) {
   const container = qs("#results");
   clearNode(container);
 
@@ -291,6 +362,7 @@ async function displayTitles(entries, names) {
     return fetchJSON(`https://api.themoviedb.org/3/${media}/${id}?api_key=${apiKey}`);
   }));
 
+  if (searchId !== activeSearchId) return;
   details.forEach((detail, idx) => {
     if (!detail) return;
     const [key, roles] = entries[idx];
@@ -313,7 +385,7 @@ async function displayTitles(entries, names) {
   });
 }
 
-async function displayPeople(entries, titles) {
+async function displayPeople(entries, titles, searchId) {
   const container = qs("#results");
   clearNode(container);
 
@@ -324,6 +396,7 @@ async function displayPeople(entries, titles) {
     })
   );
 
+  if (searchId !== activeSearchId) return;
   peopleWithDetails
     .filter(item => item.p)
     .sort((a, b) => b.p.popularity - a.p.popularity)
@@ -343,7 +416,7 @@ async function displayPeople(entries, titles) {
     });
 }
 
-function displayHeaders(items, type) {
+function displayHeaders(items, type, searchId) {
   const container = qs("#comparisonHeader");
   clearNode(container);
 
@@ -351,7 +424,7 @@ function displayHeaders(items, type) {
     const id = await getIdByName(label, type);
     if (!id) return;
     const data = await fetchJSON(`https://api.themoviedb.org/3/${type}/${id}?api_key=${apiKey}`);
-    if (!data) return;
+    if (!data || searchId !== activeSearchId) return;
 
     const imgPath = data.profile_path || data.poster_path;
     const linkPath = type === "person" ? "person" : "movie";
@@ -376,12 +449,15 @@ async function handleAutocomplete(input, box) {
   const query = input.value.trim();
   if (!query) { clearNode(box); return; }
 
-  clearTimeout(debounceTimer);
-  debounceTimer = setTimeout(async () => {
+  clearTimeout(autocompleteTimers.get(input));
+  const requestQuery = query;
+  const requestMode = currentMode;
+  const timer = setTimeout(async () => {
     try {
-      const type = currentMode === "actors" ? "person" : "movie";
+      const type = requestMode === "actors" ? "person" : "movie";
       const url = `https://api.themoviedb.org/3/search/${type}?api_key=${apiKey}&query=${encodeURIComponent(query)}&include_adult=false`;
       const data = await fetchJSON(url);
+      if (input.value.trim() !== requestQuery || currentMode !== requestMode) return;
       const results = (data?.results || []).slice(0, 6);
       clearNode(box);
 
@@ -395,7 +471,7 @@ async function handleAutocomplete(input, box) {
           ? `<img src="https://image.tmdb.org/t/p/w92${imgPath}" alt="">` 
           : `<div style="width:40px;height:55px;background:#ddd;border-radius:4px"></div>`;
 
-        const info = currentMode === "actors"
+        const info = requestMode === "actors"
           ? (s.known_for_department || "Acting")
           : (s.release_date ? s.release_date.slice(0, 4) : "N/A");
 
@@ -410,6 +486,7 @@ async function handleAutocomplete(input, box) {
       console.error("Autocomplete error:", err);
     }
   }, 300);
+  autocompleteTimers.set(input, timer);
 }
 
 function shuffleSearch() {
@@ -425,6 +502,7 @@ function shuffleSearch() {
 }
 
 function clearAll(addTwo = true) {
+  activeSearchId++;
   clearNode(qs("#inputSection"));
   clearNode(qs("#results"));
   clearNode(qs("#comparisonHeader"));
@@ -432,10 +510,22 @@ function clearAll(addTwo = true) {
 }
 
 async function fetchJSON(url) {
+  const cached = responseCache.get(url);
+  if (cached && Date.now() - cached.time < CACHE_TTL) return cached.data;
   try {
     const res = await fetch(url);
-    return res.ok ? await res.json() : null;
-  } catch { return null; }
+    if (!res.ok) {
+      console.warn("TMDb request failed:", res.status, res.statusText);
+      return null;
+    }
+    const data = await res.json();
+    responseCache.set(url, { data, time: Date.now() });
+    if (responseCache.size > 250) responseCache.delete(responseCache.keys().next().value);
+    return data;
+  } catch (error) {
+    console.error("TMDb network error:", error);
+    return null;
+  }
 }
 
 function escapeHTML(str) {
