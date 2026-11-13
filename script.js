@@ -258,6 +258,7 @@ async function compareActors(names, searchId) {
 
 async function compareFilms(titles, searchId) {
   const ids = await Promise.all(titles.map(t => getIdByName(t, "movie")));
+  if (searchId !== activeSearchId) return;
   const validIds = ids.filter(id => id !== null);
 
   if (validIds.length < titles.length) { 
