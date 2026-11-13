@@ -23,11 +23,73 @@ window.addEventListener("DOMContentLoaded", () => {
   });
   qs("#clearBtn").addEventListener("click", () => clearAll());
 
-  injectIncludeTvCheckbox();
+  qs("#includeTv").addEventListener("change", () => {
+    includeTV = qs("#includeTv").checked;
+    const entries = qsa(".entry-input").map(i => i.value.trim()).filter(Boolean);
+    if (entries.length >= 2) handleSearch();
+  });
+  setupNavigation();
   switchMode();
 });
 
-/* ------------------ UI Helpers ------------------ */
+
+// --- App navigation and discovery views ---
+const loadedViews = new Set();
+
+function setupNavigation() {
+  qsa("[data-view]").forEach(button => button.addEventListener("click", () => navigateTo(button.dataset.view)));
+  qsa("[data-go]").forEach(button => button.addEventListener("click", () => navigateTo(button.dataset.go)));
+  window.addEventListener("hashchange", () => {
+    const requested = location.hash.replace("#", "");
+    if (["home", "compare", "people", "explore"].includes(requested)) navigateTo(requested, false);
+  });
+  const initial = location.hash.replace("#", "");
+  navigateTo(["home", "compare", "people", "explore"].includes(initial) ? initial : "home", false);
+}
+
+function navigateTo(view, updateHash = true) {
+  const target = qs("#view-" + view);
+  if (!target) return;
+  qsa(".view").forEach(section => section.classList.toggle("active", section === target));
+  qsa(".nav-link").forEach(link => link.classList.toggle("active", link.dataset.view === view));
+  if (updateHash && location.hash !== "#" + view) history.replaceState(null, "", "#" + view);
+  if (view === "people" && !loadedViews.has(view)) loadDiscovery("person", "peopleGrid");
+  if (view === "explore" && !loadedViews.has(view)) loadDiscovery("trending/all/week", "exploreGrid");
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+async function loadDiscovery(endpoint, containerId) {
+  const container = qs("#" + containerId);
+  if (!container) return;
+  container.innerHTML = '<p class="loading-note">Finding something worth a look…</p>';
+  const url = endpoint === "person"
+    ? `https://api.themoviedb.org/3/person/popular?api_key=${apiKey}&language=en-US&page=1`
+    : `https://api.themoviedb.org/3/trending/all/week?api_key=${apiKey}`;
+  const data = await fetchJSON(url);
+  if (!data || !Array.isArray(data.results)) {
+    container.innerHTML = '<p class="loading-note">Could not load this collection. Please try again.</p>';
+    return;
+  }
+  const items = data.results.slice(0, 18);
+  container.innerHTML = "";
+  items.forEach(item => {
+    const isPerson = endpoint === "person";
+    const name = isPerson ? item.name : (item.title || item.name);
+    const imagePath = isPerson ? item.profile_path : item.poster_path;
+    const year = (item.release_date || item.first_air_date || "").slice(0, 4);
+    const kind = isPerson ? (item.known_for_department || "Person") : (item.media_type === "tv" ? "TV" : "Film");
+    const card = document.createElement("a");
+    card.className = "discovery-card";
+    card.href = isPerson ? `https://www.themoviedb.org/person/${item.id}` : `https://www.themoviedb.org/${item.media_type}/${item.id}`;
+    card.target = "_blank";
+    card.rel = "noopener";
+    const image = imagePath ? `https://image.tmdb.org/t/p/w342${imagePath}` : "";
+    card.innerHTML = `<img src="${image}" alt="" loading="lazy"><div><strong>${escapeHTML(name || "Untitled")}</strong><span>${escapeHTML(kind)}${year ? " · " + year : ""}</span></div>`;
+    container.appendChild(card);
+  });
+  loadedViews.add(containerId === "peopleGrid" ? "people" : "explore");
+}
+\n/* ------------------ UI Helpers ------------------ */
 
 function qs(sel, parent = document) { return parent.querySelector(sel); }
 function qsa(sel, parent = document) { return [...parent.querySelectorAll(sel)]; }
